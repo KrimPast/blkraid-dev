@@ -18,8 +18,9 @@
 
 #ifndef DEVICE_H
 #define DEVICE_H
-
-struct file* device_open(char*);
+#define MAX_DEV_LENGTH 32
+struct file* device_open(const char*);
 loff_t device_get_capacity(struct file*);
+bool device_is_equals(const char*, const char*);
 
 #endif
