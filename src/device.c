@@ -14,10 +14,15 @@
 
 #include "include/device.h"
 
-struct file* device_open(char* device_name){
+struct file* device_open(const char* device_name){
 	struct file* new_file = filp_open(device_name, O_RDWR | O_LARGEFILE, 0);
 	return new_file;
 }
 loff_t device_get_capacity(struct file* device){
 	return i_size_read(file_inode(device));
+}
+bool device_is_equals(const char* file1, const char* file2){
+	size_t n = strlen(file1);
+	if(n != strlen(file2)) return 0;
+	return strncmp(file1, file2, n) == 0 ? 1 : 0;
 }
