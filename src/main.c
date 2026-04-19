@@ -21,16 +21,12 @@
 #define SCTR_SIZE 512
 #define MAX_CAPACITY 2147483648
 
-#define MAX_DEVICES 8
-#define DEVICE_NAME "blkraid"
-
-#define mpr_err(...) pr_err(DEVICE_NAME ": " __VA_ARGS__)
-#define mpr_warn(...) pr_warn(DEVICE_NAME ": " __VA_ARGS__)
-#define mpr_info(...) pr_info(DEVICE_NAME ": " __VA_ARGS__)
+#define MAX_DEVICES 64
 
 static char* device_names[MAX_DEVICES];
 static struct file* devices[MAX_DEVICES];
-static int devices_amount;
+static int init_amount;
+static int curr_amount = 0;
 
 static struct block_dev{
 	struct blk_mq_tag_set tag_set;
@@ -61,7 +57,7 @@ static blk_status_t queue_rq(struct blk_mq_hw_ctx *hctx, const struct blk_mq_que
         }
 	int req_counter = 0;
 	if(dir == WRITE){
-		for (int i = 0; i < devices_amount; i++){
+		for (int i = 0; i < curr_amount; i++){
 			pos = start_pos;
 			rq_for_each_segment(bvec, req, iter) {
                 		void *buffer = page_address(bvec.bv_page) + bvec.bv_offset;
@@ -74,6 +70,7 @@ static blk_status_t queue_rq(struct blk_mq_hw_ctx *hctx, const struct blk_mq_que
 				++req_counter;
 				pos += count;
 			}
+			vfs_fsync(devices[i], 0);
 		}
 	} else { // dir == READ
 		rq_for_each_segment(bvec, req, iter) {
@@ -112,10 +109,24 @@ static const struct blk_mq_ops mq_ops = {
         .queue_rq = queue_rq,
 };
 
-static int add_new_device(const char *arg, const struct kernel_param *kp){
-	for(int i = 0; i < devices_amount; i++){
-		if(device_is_equals(device_names[i], arg)){
-			mpr_err("%s is already exists in RAID", arg);
+static void update_capacity(loff_t new_capacity){
+	mpr_info("Updated RAID capacity: %lld --> %lld(now)\n", dev.capacity, new_capacity);
+	dev.capacity = new_capacity;
+	set_capacity(dev.gd, dev.capacity);
+}
+static int add_device(const char *arg, const struct kernel_param *kp){
+	if (init_amount == 0){
+		mpr_err("You mustn't invoke add_device() in init period\n");
+		return -EINVAL;
+	}
+	if (curr_amount + 1 > MAX_DEVICES){
+		mpr_err("You cannot add new device. %d is roof limit\n", MAX_DEVICES);
+		return -EINVAL;
+	}
+
+	for(int i = 0; i < curr_amount; i++){
+		if(device_is_not_broken_and_equals(devices[i], arg)){
+			mpr_err("%s already exists in RAID\n", arg);
 			return -EINVAL;
 		}
 	}
@@ -124,37 +135,81 @@ static int add_new_device(const char *arg, const struct kernel_param *kp){
 		mpr_err("%s is not correct file name\n", arg);
 		return -EINVAL;
 	}
-	devices[devices_amount++] = new_device;
+	
+	char* name = kzalloc(sizeof(char) * MAX_DEV_LENGTH, GFP_KERNEL);
+	if(!name){
+		pr_err("Cannot allocate memory for save file name\n");
+		return -ENOMEM;
+	}
+	strcpy(name, arg);
+	
+	devices[curr_amount] = new_device;
+	device_names[curr_amount] = name;
+	curr_amount++;
 
 	loff_t file_capacity = device_get_capacity(new_device) / SCTR_SIZE;
 	mpr_info("%s is successfully added!\n", arg);
-	mpr_info("New amount of devices: %d\n", devices_amount);
+	mpr_info("New amount of devices: %d\n", curr_amount);
 	
 	if(file_capacity < dev.capacity){
-		mpr_info("Updated RAID capacity: %lld --> %lld(now)\n", dev.capacity, file_capacity);
-		dev.capacity = file_capacity;
-		set_capacity(dev.gd, dev.capacity);
+		update_capacity(file_capacity);
 	}
 	return 0;
 }
 static const struct kernel_param_ops add_device_ops = {
-	.set = add_new_device,
+	.set = add_device
 };
-
-static int __init blk_init(void){
-	pr_info("Amount of devices: %d", devices_amount);
-	loff_t capacity = MAX_CAPACITY;
-	for(int i = 0; i < devices_amount; i++){
-		devices[i] = device_open(device_names[i]);
-		if (IS_ERR(devices[i])){
-			mpr_err("%s is not correct file name\n", device_names[i]);
-			return -EINVAL;
+static int remove_device(const char *arg, const struct kernel_param *kp){
+	int ind = -1;
+	for(int i = 0; i < curr_amount; i++){
+		if(device_is_not_broken_and_equals(devices[i], arg)){
+			ind = i;
+			break;
 		}
+	}
+	if(ind == -1){
+		mpr_err("Device to delete is not found\n");
+		return -EINVAL;
+	}
+	filp_close(devices[ind], NULL);
+	kfree(device_names[ind]);
+	for(int i = ind + 1; i < curr_amount; i++){
+		device_names[i - 1] = device_names[i];
+		devices[i - 1] = devices[i];
+	}
+	curr_amount--;
+	mpr_err("%s is successfully deleted\n", arg);
+
+	loff_t new_capacity = curr_amount > 0 ? MAX_CAPACITY : 0;
+	for(int i = 0; i < curr_amount; i++){
+		new_capacity = min(new_capacity, device_get_capacity(devices[i]));
+	}
+	new_capacity /= SCTR_SIZE;
+	if(new_capacity == 0 || new_capacity > dev.capacity){
+		update_capacity(new_capacity);
+	}
+	return 0;
+}
+static const struct kernel_param_ops remove_device_ops = {
+	.set = remove_device
+};
+static int __init blk_init(void){
+	// Thing that in needed to correct display the devices list in "/sys/module/blkraid/parameters/"
+	init_amount = curr_amount;
+	curr_amount = 0;
+	
+	mpr_info("Initial amount of devices: %d", init_amount);
+	loff_t capacity = MAX_CAPACITY;
+	for(int i = 0; i < init_amount; i++){
+		devices[i] = device_open(device_names[i]);
+		bool ret = add_device(device_names[i], NULL);
+		if (ret != 0) return ret;
+
 		loff_t dev_capacity = device_get_capacity(devices[i]) / SCTR_SIZE;
 		mpr_info("Device %d: %s. Capacity: %lld sectors\n", i, device_names[i], dev_capacity);
 		capacity = min(capacity, dev_capacity);
 	}
-	dev.capacity = devices_amount > 0 ? capacity : 0; 
+	dev.capacity = curr_amount > 0 ? capacity : 0;
 	mpr_info("Final RAID capacity: %lld sectors\n", dev.capacity);
 
 	dev.tag_set.ops = &mq_ops;
@@ -213,8 +268,9 @@ end:
 	return -1;
 }
 static void __exit blk_exit(void){
-	for(int i = 0; i < devices_amount; i++){
-                filp_close(devices[i], NULL);
+	for(int i = 0; i < curr_amount; i++){
+		kfree(device_names[i]);
+		filp_close(devices[i], NULL);
         }
 	del_gendisk(dev.gd);
 	blk_mq_free_tag_set(&dev.tag_set);
@@ -222,11 +278,14 @@ static void __exit blk_exit(void){
 	mpr_info("Driver was successfully unloaded!\n");
 }
 
-MODULE_PARM_DESC(add_device, "In runtime: add new device");
+MODULE_PARM_DESC(add_device, "In runtime: add device");
 module_param_cb(add_device, &add_device_ops, NULL, S_IRUGO | S_IWUSR);
 
-MODULE_PARM_DESC(device_names, "In inserting module: add list of devices");
-module_param_array(device_names, charp, &devices_amount, 0644);
+MODULE_PARM_DESC(remove_device, "In runtime: remove device");
+module_param_cb(remove_device, &remove_device_ops, NULL, S_IRUGO | S_IWUSR);
+
+MODULE_PARM_DESC(device_names, "In inserting module: add list of devices / In runtime: get devices list");
+module_param_array(device_names, charp, &curr_amount, S_IRUGO);
 module_init(blk_init);
 module_exit(blk_exit);
 

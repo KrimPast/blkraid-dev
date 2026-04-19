@@ -21,8 +21,17 @@ struct file* device_open(const char* device_name){
 loff_t device_get_capacity(struct file* device){
 	return i_size_read(file_inode(device));
 }
-bool device_is_equals(const char* file1, const char* file2){
-	size_t n = strlen(file1);
-	if(n != strlen(file2)) return 0;
-	return strncmp(file1, file2, n) == 0 ? 1 : 0;
+// file1 is valid, we want check that file2 may point to file1's device
+bool device_is_not_broken_and_equals(struct file* file1, const char* file_name2){
+	struct file* file2 = device_open(file_name2);
+	if(IS_ERR(file2)){
+		mpr_err("Proposed device to add is broken\n");
+		return false;
+	}
+	struct inode *inode1 = file_inode(file1);
+    	struct inode *inode2 = file_inode(file2);
+	bool res = (inode1 == inode2);
+	filp_close(file2, NULL);
+
+	return res;
 }
