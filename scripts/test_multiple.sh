@@ -15,7 +15,7 @@ STORAGE3_CAPACITY=80KiB
 INPUT="/tmp/input.txt"
 OUTPUT="/tmp/output.txt"
 
-CAPACITY=11KiB
+CAPACITY=24KiB
 
 echo "---Creating test storage(${STORAGE_CAPACITY})"
 dd if=/dev/zero of=$STORAGE1 bs=${STORAGE1_CAPACITY} count=1 status=none
@@ -37,7 +37,7 @@ dd if=$INPUT of=/dev/${MODULE_NAME} bs=$CAPACITY count=1 status=none
 
 dd if=/dev/${MODULE_NAME} of=$OUTPUT bs=$CAPACITY count=1 status=none
 
-cmp -n $CAPACITY $INPUT $OUTPUT 
+cmp -n $CAPACITY $STORAGE1 $STORAGE2 && cmp -n $CAPACITY $STORAGE1 $STORAGE3 && cmp -n $CAPACITY $INPUT $OUTPUT
 if (( $? == 0 )) ; then
 	echo "Result: equals"
 else

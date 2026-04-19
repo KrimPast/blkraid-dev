@@ -18,9 +18,17 @@
 
 #ifndef DEVICE_H
 #define DEVICE_H
+
+#define DEVICE_NAME "blkraid"
+
+#define mpr_err(...) pr_err(DEVICE_NAME ": " __VA_ARGS__)
+#define mpr_warn(...) pr_warn(DEVICE_NAME ": " __VA_ARGS__)
+#define mpr_info(...) pr_info(DEVICE_NAME ": " __VA_ARGS__)
+
 #define MAX_DEV_LENGTH 32
+
 struct file* device_open(const char*);
 loff_t device_get_capacity(struct file*);
-bool device_is_equals(const char*, const char*);
+bool device_is_not_broken_and_equals(struct file*, const char*);
 
 #endif
