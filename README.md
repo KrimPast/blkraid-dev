@@ -57,8 +57,6 @@ Kernel version: `6.18.16-200.fc43.x86_64`
 - Read/write of block driver
 - Dynamic insert and remove devices without reload of driver
 - Auto RAID size equals minimum of sizes of all disks
-### Known bugs
-- Writing more than half of all size may cause extending size of file
 ### Possible future
 - Implement fast reading from multiple devices
 - Make support of RAID-0
