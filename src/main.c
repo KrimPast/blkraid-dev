@@ -68,7 +68,6 @@ static blk_status_t queue_rq(struct blk_mq_hw_ctx *hctx, const struct blk_mq_que
 					mpr_warn("cannot write into block device(#%d). Error code: %d\n", req_counter, ret);
 				}
 				++req_counter;
-				pos += count;
 			}
 			vfs_fsync(devices[i], 0);
 		}
@@ -83,7 +82,6 @@ static blk_status_t queue_rq(struct blk_mq_hw_ctx *hctx, const struct blk_mq_que
 			}
 			//mpr_info("segment pos: %lld\n", pos);
 			++req_counter;
-			pos += count;
         	}
 	}
 	blk_mq_end_request(req, BLK_STS_OK);
