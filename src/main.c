@@ -192,15 +192,14 @@ static const struct kernel_param_ops remove_device_ops = {
 	.set = remove_device
 };
 static int __init blk_init(void){
-	// Thing that in needed to correct display the devices list in "/sys/module/blkraid/parameters/"
+	// Thing that is needed to correct display the devices list in "/sys/module/blkraid/parameters/"
 	init_amount = curr_amount;
 	curr_amount = 0;
 	
 	mpr_info("Initial amount of devices: %d", init_amount);
 	loff_t capacity = MAX_CAPACITY;
 	for(int i = 0; i < init_amount; i++){
-		devices[i] = device_open(device_names[i]);
-		bool ret = add_device(device_names[i], NULL);
+		int ret = add_device(device_names[i], NULL);
 		if (ret != 0) return ret;
 
 		loff_t dev_capacity = device_get_capacity(devices[i]) / SCTR_SIZE;
