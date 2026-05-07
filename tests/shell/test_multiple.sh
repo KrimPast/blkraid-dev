@@ -1,6 +1,6 @@
 #!/bin/sh
 BASEDIR=$(realpath "$(dirname "$0")")
-ROOTDIR=$(realpath "$BASEDIR/..")
+ROOTDIR=$(realpath "$BASEDIR/../..")
 DATADIR="$ROOTDIR/data"
 
 MODULE_NAME="blkraid"
