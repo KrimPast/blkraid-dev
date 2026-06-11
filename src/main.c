@@ -41,27 +41,27 @@ static blk_status_t queue_rq(struct blk_mq_hw_ctx *hctx, const struct blk_mq_que
 
 	struct block_dev* curr_dev = hctx->queue->queuedata;
 	loff_t start_pos = (loff_t)blk_rq_pos(req) * SCTR_SIZE;
-        loff_t pos = start_pos;
-        unsigned long len = blk_rq_bytes(req);
-        int dir = rq_data_dir(req);
-        struct bio_vec bvec;
-        struct req_iterator iter;
+	loff_t pos = start_pos;
+	unsigned long len = blk_rq_bytes(req);
+	int dir = rq_data_dir(req);
+	struct bio_vec bvec;
+	struct req_iterator iter;
 	
 	mpr_info("request started, pos = %lld, dir = %s\n", pos, dir == WRITE ? "WRITE" : "READ");
 	blk_mq_start_request(req);
 
 	if (pos + len > curr_dev->capacity * SCTR_SIZE) {
-                mpr_info("request ended with IO error\n");
-                blk_mq_end_request(req, BLK_STS_IOERR);
-                return BLK_STS_IOERR;
-        }
+		mpr_info("request ended with IO error\n");
+		blk_mq_end_request(req, BLK_STS_IOERR);
+		return BLK_STS_IOERR;
+	}
 	int req_counter = 0;
 	if(dir == WRITE){
 		for (int i = 0; i < curr_amount; i++){
 			pos = start_pos;
 			rq_for_each_segment(bvec, req, iter) {
-                		void *buffer = page_address(bvec.bv_page) + bvec.bv_offset;
-                		size_t count = bvec.bv_len;
+				void *buffer = page_address(bvec.bv_page) + bvec.bv_offset;
+				size_t count = bvec.bv_len;
 
 				int ret = kernel_write(devices[i], buffer, count, &pos);
 				if(ret < 0){
@@ -73,8 +73,8 @@ static blk_status_t queue_rq(struct blk_mq_hw_ctx *hctx, const struct blk_mq_que
 		}
 	} else { // dir == READ
 		rq_for_each_segment(bvec, req, iter) {
-                	void *buffer = page_address(bvec.bv_page) + bvec.bv_offset;
-                	size_t count = bvec.bv_len;
+			void *buffer = page_address(bvec.bv_page) + bvec.bv_offset;
+			size_t count = bvec.bv_len;
 
 			int ret = kernel_read(devices[0], buffer, count, &pos);
 			if(ret < 0){
@@ -82,7 +82,7 @@ static blk_status_t queue_rq(struct blk_mq_hw_ctx *hctx, const struct blk_mq_que
 			}
 			//mpr_info("segment pos: %lld\n", pos);
 			++req_counter;
-        	}
+		}
 	}
 	blk_mq_end_request(req, BLK_STS_OK);
 	mpr_info("request ended, pos = %lld\n", pos);
@@ -90,21 +90,21 @@ static blk_status_t queue_rq(struct blk_mq_hw_ctx *hctx, const struct blk_mq_que
 }
 
 static int open(struct gendisk *gd, blk_mode_t mode){
-        return 0;
+	return 0;
 }
 static void release(struct gendisk *gd) { }
 static int ioctl(struct block_device *bdev, blk_mode_t mode,
-                unsigned int cmd, unsigned long arg){
-        return -ENOTTY;
+		unsigned int cmd, unsigned long arg){
+	return -ENOTTY;
 }
 static const struct block_device_operations fops = {
 	.owner = THIS_MODULE,
-        .open = open,
-        .release = release,
-        .ioctl = ioctl
+	.open = open,
+	.release = release,
+	.ioctl = ioctl
 };
 static const struct blk_mq_ops mq_ops = {
-        .queue_rq = queue_rq,
+	.queue_rq = queue_rq,
 };
 
 static void update_capacity(loff_t new_capacity){
@@ -210,48 +210,48 @@ static int __init blk_init(void){
 	mpr_info("Final RAID capacity: %lld sectors\n", dev.capacity);
 
 	dev.tag_set.ops = &mq_ops;
-        dev.tag_set.driver_data = &dev;
-        dev.tag_set.queue_depth = 128;
-        dev.tag_set.nr_hw_queues = 1;
-        dev.tag_set.nr_maps = 1;
-        dev.tag_set.numa_node = NUMA_NO_NODE;
-        dev.tag_set.flags = 0;
-        dev.tag_set.cmd_size = 0;
+	dev.tag_set.driver_data = &dev;
+	dev.tag_set.queue_depth = 128;
+	dev.tag_set.nr_hw_queues = 1;
+	dev.tag_set.nr_maps = 1;
+	dev.tag_set.numa_node = NUMA_NO_NODE;
+	dev.tag_set.flags = 0;
+	dev.tag_set.cmd_size = 0;
 
-        int ret = blk_mq_alloc_tag_set(&dev.tag_set);
-        if (ret) {
-                mpr_err("Cannot allocate tag set\n");
-                goto end;
-        }
+	int ret = blk_mq_alloc_tag_set(&dev.tag_set);
+	if (ret) {
+		mpr_err("Cannot allocate tag set\n");
+		goto end;
+	}
 
-        dev.major = register_blkdev(0, DEVICE_NAME);
-        if (dev.major < 0) {
-                mpr_err("Cannot register device in system\n");
-                goto free_tag_set;
-        }
+	dev.major = register_blkdev(0, DEVICE_NAME);
+	if (dev.major < 0) {
+		mpr_err("Cannot register device in system\n");
+		goto free_tag_set;
+	}
 
-        dev.gd = blk_mq_alloc_disk(&dev.tag_set, NULL, &dev);
-        if (IS_ERR(dev.gd)) {
-                mpr_err("Cannot allocate disk\n");
-                ret = PTR_ERR(dev.gd);
-                goto unregister_blk;
-        }
+	dev.gd = blk_mq_alloc_disk(&dev.tag_set, NULL, &dev);
+	if (IS_ERR(dev.gd)) {
+		mpr_err("Cannot allocate disk\n");
+		ret = PTR_ERR(dev.gd);
+		goto unregister_blk;
+	}
 	
 	dev.queue = dev.gd->queue;
 	dev.queue->queuedata = &dev;
 	
 	dev.queue->limits.logical_block_size = SCTR_SIZE;
-        dev.queue->limits.physical_block_size = SCTR_SIZE;
+	dev.queue->limits.physical_block_size = SCTR_SIZE;
 
 	dev.gd->fops = &fops;
 	snprintf(dev.gd->disk_name, 32, DEVICE_NAME);
 
 	set_capacity(dev.gd, dev.capacity);
 	ret = add_disk(dev.gd);
-        if (ret) {
-                mpr_err("Cannot add disk\n");
-                goto put_disk;
-        }
+	if (ret) {
+		mpr_err("Cannot add disk\n");
+		goto put_disk;
+	}
 	mpr_info("Driver was successfully added!\n");
 	return 0;
 
@@ -260,7 +260,7 @@ put_disk:
 unregister_blk:
 	unregister_blkdev(dev.major, DEVICE_NAME);
 free_tag_set:
-        blk_mq_free_tag_set(&dev.tag_set);
+	blk_mq_free_tag_set(&dev.tag_set);
 end:
 	return -1;
 }
@@ -268,7 +268,7 @@ static void __exit blk_exit(void){
 	for(int i = 0; i < curr_amount; i++){
 		kfree(device_names[i]);
 		filp_close(devices[i], NULL);
-        }
+	}
 	del_gendisk(dev.gd);
 	blk_mq_free_tag_set(&dev.tag_set);
 	put_disk(dev.gd);

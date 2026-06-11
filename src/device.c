@@ -29,7 +29,7 @@ bool device_is_not_broken_and_equals(struct file* file1, const char* file_name2)
 		return false;
 	}
 	struct inode *inode1 = file_inode(file1);
-    	struct inode *inode2 = file_inode(file2);
+	struct inode *inode2 = file_inode(file2);
 	bool res = (inode1 == inode2);
 	filp_close(file2, NULL);
 
