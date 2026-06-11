@@ -26,13 +26,13 @@ file "/dev/blkraid"
 rm $INPUT $OUTPUT --force
 
 echo "---Creating test input($CAPACITY)"
-dd if=/dev/random of=$INPUT bs=$CAPACITY count=1 status=none
+dd if=/dev/random of=$INPUT bs=$CAPACITY count=1 oflag=direct status=none
 
 echo "---Writing input into storage"
-dd if=$INPUT of=/dev/${MODULE_NAME} bs=$CAPACITY count=1 status=none
+dd if=$INPUT of=/dev/${MODULE_NAME} bs=$CAPACITY count=1 iflag=direct oflag=direct status=none
 
 echo "---Reading from storage"
-dd of=$OUTPUT if=/dev/${MODULE_NAME} bs=$CAPACITY count=1 status=none
+dd of=$OUTPUT if=/dev/${MODULE_NAME} bs=$CAPACITY count=1 iflag=direct oflag=direct status=none
 
 cmp -n $CAPACITY $INPUT $OUTPUT
 if (( $? == 0 )) ; then

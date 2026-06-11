@@ -30,12 +30,12 @@ echo "---Driver status"
 file "/dev/blkraid"
 
 echo "---Creating test input($CAPACITY)"
-dd if=/dev/random of=$INPUT bs=$CAPACITY count=1 status=none
+dd if=/dev/random of=$INPUT bs=$CAPACITY count=1 oflag=direct status=none 
 
 echo "---Writing input into storage"
-dd if=$INPUT of=/dev/${MODULE_NAME} bs=$CAPACITY count=1 status=none
+dd if=$INPUT of=/dev/${MODULE_NAME} bs=$CAPACITY count=1 iflag=direct oflag=direct status=none
 
-dd if=/dev/${MODULE_NAME} of=$OUTPUT bs=$CAPACITY count=1 status=none
+dd if=/dev/${MODULE_NAME} of=$OUTPUT bs=$CAPACITY count=1 iflag=direct oflag=direct status=none
 
 cmp -n $CAPACITY $STORAGE1 $STORAGE2 && cmp -n $CAPACITY $STORAGE1 $STORAGE3 && cmp -n $CAPACITY $INPUT $OUTPUT
 if (( $? == 0 )) ; then
