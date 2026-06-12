@@ -1,0 +1,3 @@
+blkraid-y := main.o device.o
+
+obj-m := blkraid.o
