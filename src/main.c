@@ -143,7 +143,7 @@ static int add_device(const char *arg, const struct kernel_param *kp)
 		return -EINVAL;
 	}
 
-	char *name = kzalloc(sizeof(char) * MAX_DEV_LENGTH, GFP_KERNEL);
+	char *name = kzalloc(sizeof(char) * MAX_DEV_NAME_LENGTH, GFP_KERNEL);
 
 	if (!name) {
 		pr_err("Cannot allocate memory for save file name\n");

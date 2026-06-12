@@ -25,7 +25,7 @@
 #define mpr_warn(...) pr_warn(DEVICE_NAME ": " __VA_ARGS__)
 #define mpr_info(...) pr_info(DEVICE_NAME ": " __VA_ARGS__)
 
-#define MAX_DEV_LENGTH 32
+#define MAX_DEV_NAME_LENGTH 32
 
 struct file *device_open(const char *);
 loff_t device_get_capacity(struct file *);
